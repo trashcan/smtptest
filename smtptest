@@ -1,0 +1,99 @@
+#!/usr/bin/php
+<?php
+//TODO: starttls, ssl
+//TODO: different auth types? actually parse the list of supported types?
+
+define('CONNECT_TIMEOUT', 5);
+define('RECEIVE_TIMEOUT', 5);
+
+if ($argc < 5) {
+    die("Usage:\n{$argv[0]} host[:port] username password recipient\n\n");
+}
+
+array_shift($argv);
+list($ip, $username, $password, $recipient) = $argv;
+test_smtp($ip, $username, $password, $recipient);
+
+function test_smtp($ip, $username, $password, $recipient) {
+    $port = 25;
+
+    if (strpos($ip, ':') !== false) {
+        list($ip, $port) = explode(':', $ip);
+    }
+
+    print "Connecting to $ip:$port...\n";
+    $h = fsockopen($ip, $port, $errno, $errstr, CONNECT_TIMEOUT);
+    if (!$h) {
+        print "Failed to connect to $ip:$port: $errstr ($errno)\n";
+        return false;
+    }
+    print "Connected.\n";
+    stream_set_timeout($h, RECEIVE_TIMEOUT);
+
+    // Ignore banner
+    $buffer = fgets($h, 4096);
+
+    if (!send_expect($h, "EHLO dssh.codero.com\r\n", "250")) {
+        print "Failed to send EHLO\n";
+        return false;
+    }
+
+    if (!send_expect($h, "AUTH LOGIN\r\n", "334")) {
+        error_log("Failed to request auth login");
+        return false;
+    }
+
+    $busername = base64_encode($username);
+    $bpassword = base64_encode($password);
+
+    if (!send_expect($h, "$busername\r\n", "334")) {
+        print "Failed to send b64 username\n";
+        return false;
+    }
+
+    if (!send_expect($h, "$bpassword\r\n", "235")) {
+        print "Failed to authenticate.\n";
+        return false;
+    }
+
+    if (!send_expect($h, "MAIL FROM: $username\r\n", "250")) {
+        print "Server did not accept MAIL FROM command.\n";
+        return false;
+    }
+    
+    if (!send_expect($h, "RCPT TO: <$recipient>\r\n", "250")) {
+        print "Server did not accept RCPT TO command.\n";
+        return false;
+    }
+
+
+    if (!send_expect($h, "DATA\r\n", "354")) {
+        print "Server did not accept DATA command.\n";
+        return false;
+    }
+
+    $email  = "Subject: test message\r\n\r\nThis is a test message. Please disregard.\r\n.\r\n";
+    if (!send_expect($h, $email, "250")) {
+        print "Server did not accept body of email.\n";
+        return false;
+    }
+    print "Message sent succesfully.\n";
+    return true;
+}
+
+function send_expect($socket, $send, $expect) {
+    if ($send) {
+        print ">> $send";
+        fwrite($socket, $send);
+    }
+
+    while (($buffer = fgets($socket, 4096)) !== false) {
+        print "<< $buffer";
+        if (stripos($buffer, $expect) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
