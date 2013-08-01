@@ -14,7 +14,7 @@ Example output
     Connecting to mail.<snip>.com:587...
     Connected.
     >> EHLO dssh.codero.com
-    << 250-69-64-82-122.phx.dedicated.codero.com
+    << <snip> 
     >> AUTH LOGIN
     << 250-AUTH=LOGIN CRAM-MD5 PLAIN
     << 250-AUTH LOGIN CRAM-MD5 PLAIN
