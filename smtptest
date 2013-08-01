@@ -33,7 +33,7 @@ function test_smtp($ip, $username, $password, $recipient) {
     // Ignore banner
     $buffer = fgets($h, 4096);
 
-    if (!send_expect($h, "EHLO dssh.codero.com\r\n", "250")) {
+    if (!send_expect($h, "EHLO " . php_uname('n') . "\r\n", "250")) {
         print "Failed to send EHLO\n";
         return false;
     }
